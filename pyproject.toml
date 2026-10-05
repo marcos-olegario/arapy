@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arapy"
+version = "0.1.0"
+description = "Simulation of Fluorescence Detector Responses to Longitudinal Profiles of Extensive Air Showers"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Marcos Olegario", email = "marcos.olegario@usp.br" },
+    { name = "Vitor de Souza", email = "vitor@ifsc.usp.br" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy", "scipy", "h5py", "uproot", "tqdm"
+]
+
+[project.urls]
+Repository = "https://github.com/marcos-olegario/arapy"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["arapy*"]
+
+[tool.setuptools.package-data]
+arapy = ["*.dat"]
