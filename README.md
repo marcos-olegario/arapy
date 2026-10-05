@@ -2,7 +2,7 @@
 
 **ARAPy** simulates the response of fluorescence telescopes (HiRes /
 Auger / Telescope Array style) to longitudinal profiles of extensive air
-showers simulated with [CONEX](https://doi.org/10.1016/j.astropartphys.2006.08.005).
+showers simulated with CONEX.
 
 The package emulates the full detection chain: shower geometry sampling,
 fluorescence light emission (Kakimoto et al. yield, Bunner spectrum),
@@ -16,9 +16,9 @@ calorimetric energy estimation. Cherenkov light is not included.
 Requires Python ≥ 3.12.
 
 ```bash
-git clone https://github.com/<user>/arapy.git
+git clone https://github.com/marcos-olegario/arapy.git
 cd arapy
-pip install .
+pip install -e .
 ```
 
 Dependencies (installed automatically): `numpy`, `scipy`, `h5py`,
@@ -29,7 +29,7 @@ Dependencies (installed automatically): `numpy`, `scipy`, `h5py`,
 ```python
 from arapy import DataCard, Simulation
 
-dc = DataCard(
+datacard = DataCard(
     files=["showers.root"],   # CONEX .root files
     nRep=10,                  # geometries drawn per shower
     save_hdf5=True,           # optional: also write the events to disk
@@ -37,10 +37,10 @@ dc = DataCard(
 )
 
 sim = Simulation()
-sim.Run(dc)                   # default cuts: trigger + converged GH fit
+sim.Run(datacard)                   # default cuts: trigger + converged GH fit
 
 out = sim.out                 # arrays of the surviving events
-print(out.nSim, out.nTrigger, out.survs)
+print(out.nSim, out.nTrigger, out.nSurv)  # simulated events, triggered events, and reconstructed events passing all quality cuts
 print(out.XmaxRec, out.E0Rec_GH)   # reconstructed Xmax, log10(E0/eV)
 ```
 
@@ -58,7 +58,7 @@ counted in `sim.out.cutReason`). It must reject events without trigger
 or without a Gaisser-Hillas fit:
 
 ```python
-def my_cuts(shower, telescope, pmt):
+def ApplyCuts(shower, telescope, pmt):
     if not (shower.Trigger and shower.FitGH):
         shower.cut, shower.cutReason = True, 0
     elif shower.ChisqNdofGH > 10 or not shower.XmaxVis:
@@ -66,7 +66,7 @@ def my_cuts(shower, telescope, pmt):
     else:
         shower.cut = False
 
-sim.Run(dc, my_cuts)
+sim.Run(datacard, ApplyCuts)
 ```
 
 ## Main parameters
@@ -74,20 +74,19 @@ sim.Run(dc, my_cuts)
 All parameters are set in `DataCard` (see its docstring for the full
 list). Lengths in m, angles in degrees.
 
-| Parameter | Default | Description |
-|---|---|---|
-| `Xtel, Ytel, Ztel` | 0, 0, 1597 | telescope position |
-| `ElevMin, ElevMax` | 3, 31 | field of view in elevation |
-| `AziMin, AziMax` | 0, 360 | field of view in azimuth |
-| `MaxDist` | 40e3 | maximum observation distance |
-| `RMinGen, RMaxGen` | 0, 35e3 | core generation ring |
-| `ZenMaxGen` | 60 | maximum generated zenith angle |
-| `mirrorArea`, `telEff` | 5.1 m², 0.2 | mirror area, optical efficiency |
-| `pixsize`, `intTime` | 1, 0.1 µs | pixel size, integration window |
-| `AScaH`, `HALAtSea` | 1200, 14000 | aerosol scale height and attenuation length at sea level |
-| `numPMTact`, `numPMTadj` | 5, 3 | trigger: active / adjacent pixels |
-| `numPMTtrig` | 3 | minimum number of points in the GH fit |
-| `x0`, `lambdaGH` | -100, 70 | GH fit: fixed X0 (`None` = free) and λ [g/cm²] |
+| Parameter                | Default     | Description                                              |
+| ------------------------ | ----------- | -------------------------------------------------------- |
+| `Xtel, Ytel, Ztel`       | 0, 0, 1597  | telescope position                                       |
+| `ElevMin, ElevMax`       | 3, 31       | field of view in elevation                               |
+| `AziMin, AziMax`         | 0, 360      | field of view in azimuth                                 |
+| `MaxDist`                | 40e3        | maximum observation distance                             |
+| `RMinGen, RMaxGen`       | 0, 35e3     | core generation ring                                     |
+| `ZenMaxGen`              | 60          | maximum generated zenith angle                           |
+| `mirrorArea`, `telEff`   | 5.1 m², 0.2 | mirror area, optical efficiency                          |
+| `pixsize`, `intTime`     | 1, 0.1 µs   | pixel size, integration window                           |
+| `AScaH`, `HALAtSea`      | 1200, 14000 | aerosol scale height and attenuation length at sea level |
+| `numPMTact`, `numPMTadj` | 5, 3        | trigger: active / adjacent pixels                        |
+| `x0`, `lambdaGH`         | -100, 70    | GH fit: fixed X0 (`None` = free) and λ [g/cm²]           |
 
 ## HDF5 output
 
