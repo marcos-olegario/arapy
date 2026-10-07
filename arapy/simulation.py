@@ -78,7 +78,7 @@ class Simulation:
             self.time = None
             self.eff = None
             self.nSim = None
-            self.survs = None
+            self.nSurvs = None
             self.nTrigger = None
             self.notInFOV = None
             self.cutReason = None
@@ -259,7 +259,7 @@ class Simulation:
 
         #### Bookkeeping: ####
         nSim = 0       # number of simulated showers
-        survs = 0      # number of surviving showers
+        nSurvs = 0     # number of surviving showers
         nTrigger = 0   # number of triggered showers
         notInFOV = 0   # number of showers outside the FoV
         cutReason = np.zeros(20, dtype=int)
@@ -350,10 +350,10 @@ class Simulation:
                     '''
                     Survived everything
                     '''
-                    survs += 1
+                    nSurvs += 1
 
                     if datacard.save_hdf5:
-                        self.out.saveDataset(datacard.output_file, survs, chuveiro, telescopio)
+                        self.out.saveDataset(datacard.output_file, nSurvs, chuveiro, telescopio)
 
                     # Observed profiles:
                     self.out.depth_obs.append(chuveiro.DepthMed)
@@ -404,9 +404,9 @@ class Simulation:
             fim = time.time()
 
             self.out.time = fim - inicio1
-            self.out.eff = survs/nSim if nSim != 0 else np.nan
+            self.out.eff = nSurvs/nSim if nSim != 0 else np.nan
             self.out.nSim = nSim
-            self.out.survs = survs
+            self.out.nSurvs = nSurvs
             self.out.nTrigger = nTrigger
             self.out.notInFOV = notInFOV
             self.out.cutReason = cutReason

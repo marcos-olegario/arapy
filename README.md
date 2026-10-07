@@ -1,7 +1,7 @@
 # ARAPy
 
-**ARAPy** simulates the response of fluorescence telescopes (HiRes /
-Auger / Telescope Array style) to longitudinal profiles of extensive air
+**ARAPy** simulates the response of fluorescence telescopes
+to longitudinal profiles of extensive air
 showers simulated with CONEX.
 
 The package emulates the full detection chain: shower geometry sampling,
