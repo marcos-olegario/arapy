@@ -102,6 +102,7 @@ class Shower:
         self.DepLoEle = None
         self.ShowerSize = None
         self.ProfMed = None
+        self.ProfErr = None
         self.DepthMed = None
         self.XmaxVis = None
 
@@ -179,6 +180,7 @@ class Shower:
         self.DepLoEle = None
         self.ShowerSize = None
         self.ProfMed = None
+        self.ProfErr = None
         self.DepthMed = None
         self.XmaxVis = None
         self.SumSignal = None

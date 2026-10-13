@@ -128,6 +128,7 @@ class Simulation:
             #### Observed longitudinal profiles (one array per event): ####
             self.depth_obs = []
             self.prof_obs = []
+            self.err_obs = []
 
         def saveDataset(self, out_name, event_id, chuveiro, telescopio):
             """
@@ -178,6 +179,7 @@ class Simulation:
                 # depth_med and long_med (same size, vary per event)
                 group.create_dataset('depth_med', data=chuveiro.DepthMed, compression='gzip')
                 group.create_dataset('long_med', data=chuveiro.ProfMed, compression='gzip')
+                group.create_dataset('long_err', data=chuveiro.ProfErr, compression='gzip')
 
                 # ===== FIXED-SIZE ARRAYS =====
                 core = [chuveiro.Xc, chuveiro.Yc, chuveiro.Zc]
@@ -195,7 +197,7 @@ class Simulation:
         def SaveArrays(self):
             """
             Convert the accumulated lists into numpy arrays. The observed
-            profiles (depth_obs, prof_obs) stay as lists, since their
+            profiles (depth_obs, prof_obs, err_obs) stay as lists, since their
             length varies from event to event.
             """
             self.Xfirst = np.array(self.Xfirst)
@@ -358,6 +360,7 @@ class Simulation:
                     # Observed profiles:
                     self.out.depth_obs.append(chuveiro.DepthMed)
                     self.out.prof_obs.append(chuveiro.ProfMed)
+                    self.out.err_obs.append(chuveiro.ProfErr)
 
                     self.out.Xfirst.append(chuveiro.xfirst)
 

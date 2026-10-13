@@ -22,11 +22,13 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
     1. interpolate the CONEX profile (dE/dX and N) at the depths seen
        by each pixel;
     2. compute the fluorescence photoelectrons (FluorescenceNpeKakimoto);
-    3. add night-sky and PMT/ADC-chain noise and apply the pixel
-       trigger (signal above 4 sigma of the background) and the
-       topological event trigger;
+    3. sample the photoelectrons of each pixel from signal + background
+       (Poisson + PMT gain fluctuations), subtract the mean background,
+       digitize, and apply the pixel trigger (signal above 4 sigma of the
+       background) and the topological event trigger;
     4. if triggered: convert the signal into a profile (dE/dX) and fit
-       Gaisser-Hillas, with the calorimetric energy via analytic
+       Gaisser-Hillas, with per-pixel uncertainties from photoelectron
+       statistics, and obtain the calorimetric energy via analytic
        integration of the fit.
 
     Fills the Shower object with the result (Trigger, NmaxGH, XmaxGH,
@@ -68,26 +70,34 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
     # flux_NSB [ photons / (m^2 * deg^2 * us) ] * [m^2] * pixel_area [deg^2] * [microsecond]
     npeBG = 200.0 * telescopio.mirrorArea * pmt.pixsize**2 * telescopio.intTime * telescopio.telEff
 
-    noiseThr = np.sqrt(npeBG) # baseline threshold
-    sigG = np.sqrt(npeBG * 0.4) # Gaussian width
+    VG = 0.4 # relative variance of the single-photoelectron gain
     gainADC = 0.8
     sigADC = np.sqrt(3.3)
 
-    # Generate the noise arrays for all pixels at ONCE
-    noisePoisson = rng.poisson(lam=npeBG, size=telescopio.nPMT)
-    noiseGaussPMT = rng.normal(loc=0.0, scale=sigG, size=telescopio.nPMT)
+    # Background standard deviation (Poisson + gain + ADC), used by the pixel trigger
+    noiseThr = np.sqrt(npeBG * (1 + VG) + (sigADC * gainADC)**2)
+
+    # Mean number of photoelectrons per pixel: signal + background
+    muTot = np.asarray(NPhotoelectronsVis, dtype=float) + npeBG
+
+    # Poisson photoemission, broadened by the PMT gain fluctuations
+    # (sigma^2 = n_pe * (1 + VG), Prado Jr. et al. 2005)
+    nPe = rng.poisson(lam=muTot).astype(float)
+    nPe += rng.normal(loc=0.0, scale=np.sqrt(nPe * VG))
     noiseGaussADC = rng.normal(loc=0.0, scale=sigADC, size=telescopio.nPMT)
 
     # Signal processing (digitization)
-    peNet = noisePoisson + noiseGaussPMT - npeBG # averaged to zero
+    peNet = nPe - npeBG # baseline (mean background) subtraction
     adc = peNet / gainADC # convert to ADC (analog-to-digital converter)
 
     # Effect of the loss of digital resolution (truncation to integers)
     digitalSignal = np.trunc(adc + noiseGaussADC).astype(int)
-    noiseFinal = digitalSignal * gainADC # convert to photoelectrons
 
-    # The noisy signal observed by the telescope
-    NPhotonsMed = NPhotoelectronsVis + noiseFinal
+    # The noisy signal observed by the telescope (signal + noise)
+    NPhotonsMed = digitalSignal * gainADC # convert to photoelectrons
+
+    # Expected uncertainty of each pixel, estimated from the measured signal
+    sigPe = np.sqrt(np.clip(NPhotonsMed + npeBG, 0, None) * (1 + VG) + (sigADC * gainADC)**2)
 
     # Pixel trigger (the 4-sigma cut)
     # Returns a boolean array: True where activated, False where it is noise
@@ -120,6 +130,7 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
 
     # Store results
     pmt.NPhotonsMedido = NPhotonsMed.tolist()
+    pmt.SigmaMedido = sigPe.tolist()
     pmt.Triggers = pixelsAct.tolist()
 
     # --- Reconstructing the signal ---
@@ -154,12 +165,14 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
         # Signal reconstruction
         depthVis = np.array(pmt.depth)[triggerMask] / np.cos(d2rad(chuveiro.ZenAng)) # slant
         signalMed = np.array(pmt.NPhotonsMedido)[triggerMask]
+        sigmaMed = np.array(pmt.SigmaMedido)[triggerMask]
         factors = np.array(pmt.factor)[triggerMask]
         timeMed = np.array(pmt.TimeSeen)[triggerMask]
 
         # Conversion of the measured signal into a profile proportional
         # to dE/dX, ready for the GH fit.
         fitProf = signalMed / factors
+        fitErr = sigmaMed / factors
 
         # Three scales coexist here, and the name states which one:
         #   *Signal     : photoelectrons inside ONE integration window [pe].
@@ -185,6 +198,7 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
         chuveiro.ShowerSize = abs(depthVis[-1] - depthVis[0])
 
         chuveiro.ProfMed = fitProf
+        chuveiro.ProfErr = fitErr
         chuveiro.DepthMed = depthVis
 
         if len(fitProf) >= datacard.numPMTtrig:
@@ -197,14 +211,15 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
 
             freeX0 = datacard.x0 is None
 
-            # Estimated error: 20% of the measured signal, which is always
-            # > 0 in triggered pixels.
-            estimErrors = 0.2 * fitProf
+            # Estimated error: photoelectron statistics of each pixel
+            # (signal + background, sigma^2 = n_pe * (1 + VG) + ADC noise)
+            # propagated to the profile scale.
+            estimErrors = fitErr
 
             # Initial guesses
             idx_max = np.argmax(fitProf)
             NmaxTry = fitProf[idx_max]
-            XmaxTry = 750
+            XmaxTry = depthVis[idx_max] if depthVis[idx_max] < 2200 else 750
 
             if freeX0:
                 X0Try = 40.0 if telescopio.IsHIRESI else -60.0 # Logic kept from the original
@@ -237,7 +252,7 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
                         sigma=estimErrors,
                         absolute_sigma=True,
                         bounds=limits,
-                        maxfev=3000
+                        maxfev=10000
                     )
                     NmaxFit, XmaxFit, X0Fit = paramsOpt
                 else:
@@ -254,7 +269,7 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
                         sigma=estimErrors,
                         absolute_sigma=True,
                         bounds=limits,
-                        maxfev=3000
+                        maxfev=10000
                     )
                     NmaxFit, XmaxFit = paramsOpt
 
@@ -294,7 +309,7 @@ def Reconstruct(chuveiro, telescopio, rodada, pmt, rng, datacard, atm, fluspc):
                                 sigma=estimErrors,
                                 absolute_sigma=True,
                                 bounds=bounds_fixed,
-                                maxfev=3000
+                                maxfev=10000
                             )
 
                             nmax_f, x0_f = paramsOpt_fixed

@@ -11,7 +11,7 @@ Public API:
     Simulation -- main loop (Simulation().Run(datacard, ApplyCuts))
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .datacard import DataCard
 from .simulation import Simulation

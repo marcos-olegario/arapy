@@ -119,6 +119,7 @@ class PMT:
         self.NPhotonsIdeal = []
         self.TriggerEv = None
         self.NPhotonsMedido = []
+        self.SigmaMedido = []
         self.Triggers = []
         self.TimeSeen = [] # microsecond
 

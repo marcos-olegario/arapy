@@ -40,15 +40,15 @@ sim = Simulation()
 sim.Run(datacard)                   # default cuts: trigger + converged GH fit
 
 out = sim.out                 # arrays of the surviving events
-print(out.nSim, out.nTrigger, out.nSurv)  # simulated events, triggered events, and reconstructed events passing all quality cuts
+print(out.nSim, out.nTrigger, out.nSurvs)  # simulated events, triggered events, and reconstructed events passing all quality cuts
 print(out.XmaxRec, out.E0Rec_GH)   # reconstructed Xmax, log10(E0/eV)
 ```
 
 After the run, `sim.out` always holds numpy arrays with one entry per
 surviving event (e.g. `E0Sim`, `E0Rec_GH`, `XmaxSim`, `XmaxRec`,
 `NmaxRec`, `ZenAng`, `RpCut`, `Npmt`, `ChisqNDOFGH`) and the observed
-profiles `depth_obs` / `prof_obs`. With `save_hdf5=False` nothing is
-written to disk.
+profiles `depth_obs` / `prof_obs` with their uncertainties `err_obs`.
+With `save_hdf5=False` nothing is written to disk.
 
 ### Quality cuts
 
@@ -59,9 +59,9 @@ or without a Gaisser-Hillas fit:
 
 ```python
 def ApplyCuts(shower, telescope, pmt):
-    if not (shower.Trigger and shower.FitGH):
+    if not shower.Trigger:
         shower.cut, shower.cutReason = True, 0
-    elif shower.ChisqNdofGH > 10 or not shower.XmaxVis:
+    elif not shower.FitGH or not shower.XmaxVis:
         shower.cut, shower.cutReason = True, 1
     else:
         shower.cut = False
@@ -95,7 +95,7 @@ scalar attributes (geometry, signal and reconstruction quantities, e.g.
 `Rp`, `zenAng`, `chi0`, `nPMTtr`, `ChisqNdofGH`, `EnSim`, `E0EeV`,
 `EcalEeV`) and the datasets:
 
-- `depth_med`, `long_med`: observed (reconstructed) profile;
+- `depth_med`, `long_med`, `long_err`: observed (reconstructed) profile and its uncertainties;
 - `depth_sim`, `long_sim`: CONEX energy-deposit profile;
 - `params_rec`, `params_sim`: GH parameters (dE/dX max, Xmax, X0);
 - `core`: core position.
